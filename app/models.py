@@ -1,36 +1,72 @@
-class Person:
-    def __init__(self, name: str):
-        self.name = name
+from typing import List, Optional
+from sqlalchemy import String, Integer, Float, ForeignKey, Table, Column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from database import Base
+
+# Таблицы связей (Многие-ко-многим)
+movie_actor_assoc = Table(
+    "movie_actor", Base.metadata,
+    Column("movie_id", ForeignKey("movies.id"), primary_key=True),
+    Column("actor_id", ForeignKey("actors.id"), primary_key=True)
+)
+
+movie_genre_assoc = Table(
+    "movie_genre", Base.metadata,
+    Column("movie_id", ForeignKey("movies.id"), primary_key=True),
+    Column("genre_id", ForeignKey("genres.id"), primary_key=True)
+)
+
+# --- БАЗОВЫЕ КЛАССЫ ---
+
+class Person(Base):
+    __abstract__ = True # Гит не создает таблицу для этого класса
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
 
 class Director(Person):
-    def __repr__(self):
-        return f"Режиссер: {self.name}"
+    __tablename__ = "directors"
+    movies: Mapped[List["Movie"]] = relationship(back_populates="director")
+    def __repr__(self): return f"Режиссер: {self.name}"
 
 class Actor(Person):
-    def __repr__(self):
-        return f"Актер: {self.name}"
-    
+    __tablename__ = "actors"
+    movies: Mapped[List["Movie"]] = relationship(secondary=movie_actor_assoc, back_populates="actors")
+    def __repr__(self): return f"Актер: {self.name}"
+
 class Writer(Person):
-    def __repr__(self):
-        return f"Актер: {self.name}"
+    __tablename__ = "writers"
+    movies: Mapped[List["Movie"]] = relationship(back_populates="writer")
+    def __repr__(self): return f"Сценарист: {self.name}"
 
-class Genre:
-    def __init__(self, name: str):
-        self.name = name
+class Genre(Base):
+    __tablename__ = "genres"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+    movies: Mapped[List["Movie"]] = relationship(secondary=movie_genre_assoc, back_populates="genres")
+    def __repr__(self): return self.name
 
-    def __repr__(self):
-        return self.name
-    
-class Movie:
-    def __init__(self, title: str, year: int, director: Director, writer: Writer):
-        self.title = title
-        self.year = year
-        self.director = director
-        self.writer = writer
+# --- ОСНОВНОЙ КЛАСС МОВИЕ ---
 
-        self._rating = 0.0
-        self.genres = []
-        self.actors = []
+class Movie(Base):
+    __tablename__ = "movies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(255))
+    year: Mapped[int] = mapped_column(Integer)
+    runtime: Mapped[float] = mapped_column(Float)
+    budget_count: Mapped[int] = mapped_column(Integer) # Бюджет
+    gross_count: Mapped[int] = mapped_column(Integer)  # Сборы
+    _rating: Mapped[float] = mapped_column("rating", Float, default=0.0)
+
+    # Внешние ключи
+    director_id: Mapped[int] = mapped_column(ForeignKey("directors.id"))
+    writer_id: Mapped[int] = mapped_column(ForeignKey("writers.id"))
+
+    # Отношения (Relationship)
+    director: Mapped["Director"] = relationship(back_populates="movies")
+    writer: Mapped["Writer"] = relationship(back_populates="movies")
+    genres: Mapped[List["Genre"]] = relationship(secondary=movie_genre_assoc, back_populates="movies")
+    actors: Mapped[List["Actor"]] = relationship(secondary=movie_actor_assoc, back_populates="movies")
 
     @property
     def rating(self):
@@ -41,61 +77,9 @@ class Movie:
         if 0 <= value <= 10:
             self._rating = value
         else:
-            print(f"Ошибка: Рейтинг {value} не лежит в диапазоне от 0 до 10!")
-
-    def add_genre(self, genre: Genre):
-        if genre not in self.genres:
-            self.genres.append(genre)
-
-    def add_actor(self, actor: Actor):
-        if actor not in self.actors:
-            self.actors.append(actor)
+            raise ValueError(f"Ошибка: Рейтинг {value} вне диапазона 0-10")
 
     def get_full_info(self):
-        genres_str = ", ".join([g.name for g in self.genres])
         return (f"Фильм: '{self.title}' ({self.year})\n"
-                f"Режиссер: {self.director.name}\n"
-                f"Сценарист: {self.writer.name}\n"
-                f"Жанр: {genres_str}\n"
+                f"Режиссер: {self.director.name if self.director else 'Неизвестен'}\n"
                 f"Рейтинг: {self.rating}")
-
-    def __repr__(self):
-        return f"Movie('{self.title}')"
-    
-class MovieLibrary:
-    def __init__(self):
-        self._movies = []
-
-    def add_movie(self, movie: Movie):
-        self._movies.append(movie)
-        print(f"Фильм '{movie.title}' добавлен в библиотеку.")
-
-    def find_by_title(self, title: str):
-        return [m for m in self._movies if title.lower() in m.title.lower()]
-
-    def list_all_movies(self):
-        for m in self._movies:
-            print(m.get_full_info())
-            print("-" * 20)
-
-# 1. Создаем объекты людей и жанров
-nolan = Director("Кристофер Нолан")
-bale = Actor("Кристиан Бэйл")
-sci_fi = Genre("Научная фантастика")
-epstein = Writer("Джеффри Эпштейн")
-drama = Genre("Драма")
-
-# 2. Создаем фильм
-interstellar = Movie("Интерстеллар", 2014, nolan, epstein)
-interstellar.add_genre(sci_fi)
-interstellar.add_genre(drama)
-interstellar.add_actor(bale)
-interstellar.rating = 8.7  # Работает сеттер
-
-# 3. Работаем с библиотекой
-library = MovieLibrary()
-library.add_movie(interstellar)
-
-# 4. Вывод данных
-print("\n--- СОДЕРЖИМОЕ БИБЛИОТЕКИ ---")
-library.list_all_movies()
