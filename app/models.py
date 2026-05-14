@@ -3,7 +3,6 @@ from sqlalchemy import String, Integer, Float, ForeignKey, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
-# Таблицы связей (Многие-ко-многим)
 movie_actor_assoc = Table(
     "movie_actor", Base.metadata,
     Column("movie_id", ForeignKey("movies.id"), primary_key=True),
@@ -16,10 +15,8 @@ movie_genre_assoc = Table(
     Column("genre_id", ForeignKey("genres.id"), primary_key=True)
 )
 
-# --- БАЗОВЫЕ КЛАССЫ ---
-
 class Person(Base):
-    __abstract__ = True # Гит не создает таблицу для этого класса
+    __abstract__ = True
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
 
@@ -45,8 +42,6 @@ class Genre(Base):
     movies: Mapped[List["Movie"]] = relationship(secondary=movie_genre_assoc, back_populates="genres")
     def __repr__(self): return self.name
 
-# --- ОСНОВНОЙ КЛАСС МОВИЕ ---
-
 class Movie(Base):
     __tablename__ = "movies"
 
@@ -58,11 +53,9 @@ class Movie(Base):
     gross_count: Mapped[int] = mapped_column(Integer)  # Сборы
     _rating: Mapped[float] = mapped_column("rating", Float, default=0.0)
 
-    # Внешние ключи
     director_id: Mapped[int] = mapped_column(ForeignKey("directors.id"))
     writer_id: Mapped[int] = mapped_column(ForeignKey("writers.id"))
 
-    # Отношения (Relationship)
     director: Mapped["Director"] = relationship(back_populates="movies")
     writer: Mapped["Writer"] = relationship(back_populates="movies")
     genres: Mapped[List["Genre"]] = relationship(secondary=movie_genre_assoc, back_populates="movies")
@@ -82,4 +75,6 @@ class Movie(Base):
     def get_full_info(self):
         return (f"Фильм: '{self.title}' ({self.year})\n"
                 f"Режиссер: {self.director.name if self.director else 'Неизвестен'}\n"
-                f"Рейтинг: {self.rating}")
+                f"Рейтинг: {self.rating}\n"
+                f"Актёрский состав: {self.actors.name if self.actors else "Неизвестен"}\n"
+                f"Бюджет: {self.budget_count}\n")
