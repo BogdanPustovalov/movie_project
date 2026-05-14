@@ -14,17 +14,13 @@ class PersonService:
         return self.repo.create(name=name)
 
     def delete_person(self, person_id: int):
-        # 1. Ищем человека в базе через репозиторий
         person = self.repo.get_by_id(person_id)
         if not person:
             raise ValueError("Запись не найдена")
         
-        # 2. Проверка связей: если у человека есть фильмы, удалять нельзя
-        # Это защищает базу от ошибок целостности
         if len(person.movies) > 0:
             raise ValueError(f"Нельзя удалить '{person.name}', так как есть фильмы с его участием!")
         
-        # 3. Если всё ок, вызываем метод удаления в репозитории
         self.repo.delete(person)
 
 class GenreService:

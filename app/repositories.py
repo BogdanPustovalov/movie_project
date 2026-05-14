@@ -21,7 +21,6 @@ class BaseRepository:
         return obj
     
     def delete(self, obj):
-        """Принимает готовый объект и удаляет его из базы"""
         self.db.delete(obj)
         self.db.commit()
 
@@ -54,7 +53,6 @@ class MovieRepository(BaseRepository):
     def search(self, title: str = None, genre_id: int = None, sort_by: str = "year", reverse: bool = True):
         query = self.db.query(models.Movie)
         
-        # Фильтрация (оставляем как было)
         if title:
             query = query.filter(models.Movie.title.ilike(f"%{title}%"))
         if genre_id:
@@ -70,7 +68,6 @@ class MovieRepository(BaseRepository):
         
         column = sort_map.get(sort_by, models.Movie.year)
         
-        # Применяем сортировку
         if reverse:
             query = query.order_by(desc(column))
         else:
@@ -79,11 +76,9 @@ class MovieRepository(BaseRepository):
         return query.all()
     
     def update(self, movie_obj, actors, genres, **kwargs):
-        # Обновляем простые поля (title, year, rating и т.д.)
         for key, value in kwargs.items():
             setattr(movie_obj, key, value)
         
-        # Обновляем связи
         movie_obj.actors = actors
         movie_obj.genres = genres
         
